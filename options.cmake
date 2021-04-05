@@ -1,4 +1,4 @@
-# VulkanEd Source Code
+# MetalEd Source Code
 # Wasim Abbas
 # http://www.waZim.com
 # Copyright (c) 2008-2019
