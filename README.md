@@ -21,6 +21,8 @@ make -j8
 This project uses the following third party software as submodules.
 
 * [Roar](https://github.com/abbaswasim/roar)
+* [CImg](https://cimg.eu)
+* [GLFW](https://github.com/glfw/glfw)
 
 ## License
 
