@@ -38,7 +38,6 @@
 #include "math/rormatrix4.hpp"
 #include "math/rormatrix4_functions.hpp"
 #include "math/rorvector3.hpp"
-#include "metal_astro_boy.hpp"
 #include "skeletal_animation.hpp"
 
 #include "CImg.h"
@@ -478,8 +477,7 @@ class MetalApplication
 		uint32_t  tex_width{}, tex_height{}, tex_bpp{};
 		uchar8_t *data{nullptr};
 
-		// read_texture_from_file( (std::filesystem::current_path() / "assets/astroboy/astro_boy10.jpg").c_str(), data, tex_width, tex_height, tex_bpp);
-		read_texture_from_file("/System/Volumes/Data/personal/metaled/assets/astroboy/astro_boy.jpg", &data, tex_width, tex_height, tex_bpp);
+		read_texture_from_file("./assets/astroboy/astro_boy.jpg", &data, tex_width, tex_height, tex_bpp);
 
 		assert(tex_bpp == 4);
 
