@@ -40,7 +40,10 @@
 #include "math/rorvector3.hpp"
 #include "skeletal_animation.hpp"
 
-#include "CImg.h"
+#include "metal_astro_boy.hpp"
+
+#define cimg_display 0
+#include "CImg/CImg.h"
 #include "camera.hpp"
 
 #include <cstdio>
@@ -274,46 +277,8 @@ class MetalApplication
 
 		queue = [device newCommandQueue];
 
-		float   astro_boy_positions_mod[(astro_boy_positions_array_count / 3) * 4];
-		float   astro_boy_normals_mod[(astro_boy_normals_array_count / 3) * 4];
-		float   astro_boy_uvs_mod[(astro_boy_uvs_array_count / 2) * 4];
-		float   astro_boy_weights_mod[(astro_boy_weights_array_count / 3) * 4];
-		int32_t astro_boy_joints_mod[(astro_boy_joints_array_count / 3) * 4];
-
-		// Metal doesn't like 3D positions, prefers 4D
-		for (int i = 0; i < astro_boy_positions_array_count / 3; i++)
-		{
-			astro_boy_positions_mod[i * 4 + 0] = astro_boy_positions[i * 3 + 0];
-			astro_boy_positions_mod[i * 4 + 1] = astro_boy_positions[i * 3 + 1];
-			astro_boy_positions_mod[i * 4 + 2] = astro_boy_positions[i * 3 + 2];
-			astro_boy_positions_mod[i * 4 + 3] = 1.0f;
-
-			astro_boy_normals_mod[i * 4 + 0] = astro_boy_normals[i * 3 + 0];
-			astro_boy_normals_mod[i * 4 + 1] = astro_boy_normals[i * 3 + 1];
-			astro_boy_normals_mod[i * 4 + 2] = astro_boy_normals[i * 3 + 2];
-			astro_boy_normals_mod[i * 4 + 3] = 1.0f;
-
-			astro_boy_uvs_mod[i * 4 + 0] = astro_boy_uvs[i * 2 + 0];
-			astro_boy_uvs_mod[i * 4 + 1] = astro_boy_uvs[i * 2 + 1];
-			astro_boy_uvs_mod[i * 4 + 2] = 1.0f;
-			astro_boy_uvs_mod[i * 4 + 3] = 1.0f;
-
-			astro_boy_weights_mod[i * 4 + 0] = astro_boy_weights[i * 3 + 0];
-			astro_boy_weights_mod[i * 4 + 1] = astro_boy_weights[i * 3 + 1];
-			astro_boy_weights_mod[i * 4 + 2] = astro_boy_weights[i * 3 + 2];
-			astro_boy_weights_mod[i * 4 + 3] = 1.0f;
-
-			astro_boy_joints_mod[i * 4 + 0] = astro_boy_joints[i * 3 + 0];
-			astro_boy_joints_mod[i * 4 + 1] = astro_boy_joints[i * 3 + 1];
-			astro_boy_joints_mod[i * 4 + 2] = astro_boy_joints[i * 3 + 2];
-			astro_boy_joints_mod[i * 4 + 3] = 1.0f;
-
-			ror::Vector3f point{astro_boy_positions[i * 3 + 0],
-								astro_boy_positions[i * 3 + 1],
-								astro_boy_positions[i * 3 + 2]};
-
-			astroboy_bbox.add_point(point);
-		}
+		astroboy_bbox.create_from_min_max(ror::Vector3f(astro_boy_bounding_box[0], astro_boy_bounding_box[1], astro_boy_bounding_box[2]),
+										  ror::Vector3f(astro_boy_bounding_box[3], astro_boy_bounding_box[4], astro_boy_bounding_box[5]));
 
 		ror::glfw_camera_init(this->m_window);
 		ror::glfw_camera_visual_volume(astroboy_bbox.minimum(), astroboy_bbox.maximum());
@@ -323,11 +288,11 @@ class MetalApplication
 		uniforms.model           = ror::identity_matrix4f;
 		uniforms.view_projection = ror::make_perspective(ror::to_radians(90.0f), (float) win_width / (float) win_height, 0.0f, 1000.0f);
 
-		positions      = [device newBufferWithBytes:astro_boy_positions_mod length:((astro_boy_positions_array_count / 3) * 4) * sizeof(float) options:MTLCPUCacheModeDefaultCache];
-		normals        = [device newBufferWithBytes:astro_boy_normals_mod length:((astro_boy_normals_array_count / 3) * 4) * sizeof(float) options:MTLCPUCacheModeDefaultCache];
-		texture_coords = [device newBufferWithBytes:astro_boy_uvs_mod length:((astro_boy_uvs_array_count * sizeof(float) / 2) * 4) options:MTLCPUCacheModeDefaultCache];
-		weights        = [device newBufferWithBytes:astro_boy_weights_mod length:((astro_boy_weights_array_count * sizeof(float) / 3) * 4) options:MTLCPUCacheModeDefaultCache];
-		joint_ids      = [device newBufferWithBytes:astro_boy_joints_mod length:((astro_boy_joints_array_count * sizeof(int32_t) / 3) * 4) options:MTLCPUCacheModeDefaultCache];
+		positions      = [device newBufferWithBytes:astro_boy_positions length:astro_boy_positions_array_count * sizeof(float) options:MTLCPUCacheModeDefaultCache];
+		normals        = [device newBufferWithBytes:astro_boy_normals length:astro_boy_normals_array_count * sizeof(float) options:MTLCPUCacheModeDefaultCache];
+		texture_coords = [device newBufferWithBytes:astro_boy_uvs length:astro_boy_uvs_array_count * sizeof(float) options:MTLCPUCacheModeDefaultCache];
+		weights        = [device newBufferWithBytes:astro_boy_weights length:astro_boy_weights_array_count * sizeof(float) options:MTLCPUCacheModeDefaultCache];
+		joint_ids      = [device newBufferWithBytes:astro_boy_joints length:astro_boy_joints_array_count * sizeof(int32_t) options:MTLCPUCacheModeDefaultCache];
 		indices        = [device newBufferWithBytes:astro_boy_indices length:astro_boy_indices_array_count * sizeof(uint32_t) options:MTLCPUCacheModeDefaultCache];
 		mvp            = [device newBufferWithBytes:&uniforms length:sizeof(Uniforms) options:MTLCPUCacheModeDefaultCache];
 
@@ -336,107 +301,111 @@ class MetalApplication
 		MTLCompileOptions *compileOptions = [MTLCompileOptions new];
 		compileOptions.languageVersion    = MTLLanguageVersion1_1;
 		id<MTLLibrary> shader_lib         = [device newLibraryWithSource:@ "using namespace metal; \n"
-																  "struct ColoredVertex \n"
-																  "{ \n"
-																  "    float4 position [[position]]; \n"
-																  "    float3 world_position; \n"
-																  "    float3 normal; \n"
-																  "    float3 texture_coord; \n"
-																  "}; \n"
-																  "struct Uniforms \n"
-																  "{ \n"
-																  "    float4x4 model; \n"
-																  "    float4x4 view_projection; \n"
-																  "    float4x4 joints_matrices[44]; \n"
-																  "}; \n"
-																  "// Returns the determinant of a 2x2 matrix. \n"
-																  "static inline __attribute__((always_inline)) \n"
-																  "float spvDet2x2(float a1, float a2, float b1, float b2) \n"
-																  "{ \n"
-																  "    return a1 * b2 - b1 * a2; \n"
-																  "} \n"
-																  "// Returns the determinant of a 3x3 matrix. \n"
-																  "static inline __attribute__((always_inline)) \n"
-																  "float spvDet3x3(float a1, float a2, float a3, float b1, float b2, float b3, float c1, float c2, float c3) \n"
-																  "{ \n"
-																  "    return a1 * spvDet2x2(b2, b3, c2, c3) - b1 * spvDet2x2(a2, a3, c2, c3) + c1 * spvDet2x2(a2, a3, b2, b3); \n"
-																  "} \n"
-																  "// Returns the inverse of a matrix, by using the algorithm of calculating the classical \n"
-																  "// adjoint and dividing by the determinant. The contents of the matrix are changed. \n"
-																  "static inline __attribute__((always_inline)) \n"
-																  "float4x4 spvInverse4x4(float4x4 m) \n"
-																  "{ \n"
-																  "    float4x4 adj;	// The adjoint matrix (inverse after dividing by determinant) \n"
-																  "    // Create the transpose of the cofactors, as the classical adjoint of the matrix. \n"
-																  "    adj[0][0] =  spvDet3x3(m[1][1], m[1][2], m[1][3], m[2][1], m[2][2], m[2][3], m[3][1], m[3][2], m[3][3]); \n"
-																  "    adj[0][1] = -spvDet3x3(m[0][1], m[0][2], m[0][3], m[2][1], m[2][2], m[2][3], m[3][1], m[3][2], m[3][3]); \n"
-																  "    adj[0][2] =  spvDet3x3(m[0][1], m[0][2], m[0][3], m[1][1], m[1][2], m[1][3], m[3][1], m[3][2], m[3][3]); \n"
-																  "    adj[0][3] = -spvDet3x3(m[0][1], m[0][2], m[0][3], m[1][1], m[1][2], m[1][3], m[2][1], m[2][2], m[2][3]); \n"
-																  "    adj[1][0] = -spvDet3x3(m[1][0], m[1][2], m[1][3], m[2][0], m[2][2], m[2][3], m[3][0], m[3][2], m[3][3]); \n"
-																  "    adj[1][1] =  spvDet3x3(m[0][0], m[0][2], m[0][3], m[2][0], m[2][2], m[2][3], m[3][0], m[3][2], m[3][3]); \n"
-																  "    adj[1][2] = -spvDet3x3(m[0][0], m[0][2], m[0][3], m[1][0], m[1][2], m[1][3], m[3][0], m[3][2], m[3][3]); \n"
-																  "    adj[1][3] =  spvDet3x3(m[0][0], m[0][2], m[0][3], m[1][0], m[1][2], m[1][3], m[2][0], m[2][2], m[2][3]); \n"
-																  "    adj[2][0] =  spvDet3x3(m[1][0], m[1][1], m[1][3], m[2][0], m[2][1], m[2][3], m[3][0], m[3][1], m[3][3]); \n"
-																  "    adj[2][1] = -spvDet3x3(m[0][0], m[0][1], m[0][3], m[2][0], m[2][1], m[2][3], m[3][0], m[3][1], m[3][3]); \n"
-																  "    adj[2][2] =  spvDet3x3(m[0][0], m[0][1], m[0][3], m[1][0], m[1][1], m[1][3], m[3][0], m[3][1], m[3][3]); \n"
-																  "    adj[2][3] = -spvDet3x3(m[0][0], m[0][1], m[0][3], m[1][0], m[1][1], m[1][3], m[2][0], m[2][1], m[2][3]); \n"
-																  "    adj[3][0] = -spvDet3x3(m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2], m[3][0], m[3][1], m[3][2]); \n"
-																  "    adj[3][1] =  spvDet3x3(m[0][0], m[0][1], m[0][2], m[2][0], m[2][1], m[2][2], m[3][0], m[3][1], m[3][2]); \n"
-																  "    adj[3][2] = -spvDet3x3(m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[3][0], m[3][1], m[3][2]); \n"
-																  "    adj[3][3] =  spvDet3x3(m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]); \n"
-																  "    // Calculate the determinant as a combination of the cofactors of the first row. \n"
-																  "    float det = (adj[0][0] * m[0][0]) + (adj[0][1] * m[1][0]) + (adj[0][2] * m[2][0]) + (adj[0][3] * m[3][0]); \n"
-																  "    // Divide the classical adjoint matrix by the determinant. \n"
-																  "    // If determinant is zero, matrix is not invertable, so leave it unchanged. \n"
-																  "    return (det != 0.0f) ? (adj * (1.0f / det)) : m; \n"
-																  "} \n"
-																  "vertex ColoredVertex vertex_main(constant float4 *position [[buffer(0)]], \n"
-																  "                                 constant float3 *normal [[buffer(1)]], \n"
-																  "                                 constant float3 *texture_coord [[buffer(2)]], \n"
-																  "                                 constant float3 *weight [[buffer(3)]], \n"
-																  "                                 constant int3 *joint_id [[buffer(4)]], \n"
-																  "                                 constant  Uniforms &uniforms[[buffer(5)]], \n"
-																  "                                 uint vid [[vertex_id]]) \n"
-																  "{ \n"
-																  "    ColoredVertex vert; \n"
-																  "    float4x4 mvp = uniforms.view_projection * uniforms.model; \n"
-																  "	   float4x4 keyframe_transform = \n"
-																  "	   uniforms.joints_matrices[joint_id[vid].x] * weight[vid].x + \n"
-																  "	   uniforms.joints_matrices[joint_id[vid].y] * weight[vid].y + \n"
-																  "	   uniforms.joints_matrices[joint_id[vid].z] * weight[vid].z; \n"
-																  "	   float4x4 model_animated = uniforms.model * keyframe_transform; \n"
-																  "	   vert.world_position = float4(model_animated * position[vid]).xyz; \n"
-																  "    vert.position = uniforms.view_projection * float4(vert.world_position, 1.0f); \n"
-																  "    float4x4 model_inverse = transpose(spvInverse4x4(uniforms.model)); \n"
-																  "    vert.normal = float3x3(model_inverse[0].xyz, model_inverse[1].xyz, model_inverse[2].xyz) * normal[vid]; \n"
-																  "    vert.texture_coord = texture_coord[vid]; \n"
-																  "    return vert; \n"
-																  "} \n"
-																  "fragment float4 fragment_main(ColoredVertex vert [[stage_in]], \n"
-																  "                              texture2d<float> color_texture [[texture(0)]])\n"
-																  "{ \n"
-																  "    float3 light_position = float3(50.0f, 20.0f, 10.0f); \n"
+																  " struct Vertex \n"
+																  " { \n"
+																  "     float3 position [[attribute(0)]]; \n"
+																  "     float3 normal [[attribute(1)]]; \n"
+																  "     float2 texture_coord [[attribute(2)]]; \n"
+																  "     float3 weight [[attribute(3)]]; \n"
+																  "     int3 joint_id [[attribute(4)]]; \n"
+																  " }; \n"
+																  "  \n"
+																  " struct ColoredVertex \n"
+																  " { \n"
+																  "     float4 position [[position]]; \n"
+																  "     float3 world_position; \n"
+																  "     float3 normal; \n"
+																  "     float2 texture_coord; \n"
+																  " }; \n"
+																  " struct Uniforms \n"
+																  " { \n"
+																  "     float4x4 model; \n"
+																  "     float4x4 view_projection; \n"
+																  "     float4x4 joints_matrices[44]; \n"
+																  " }; \n"
+																  " // Returns the determinant of a 2x2 matrix. \n"
+																  " static inline __attribute__((always_inline)) \n"
+																  " float spvDet2x2(float a1, float a2, float b1, float b2) \n"
+																  " { \n"
+																  "     return a1 * b2 - b1 * a2; \n"
+																  " } \n"
+																  " // Returns the determinant of a 3x3 matrix. \n"
+																  " static inline __attribute__((always_inline)) \n"
+																  " float spvDet3x3(float a1, float a2, float a3, float b1, float b2, float b3, float c1, float c2, float c3) \n"
+																  " { \n"
+																  "     return a1 * spvDet2x2(b2, b3, c2, c3) - b1 * spvDet2x2(a2, a3, c2, c3) + c1 * spvDet2x2(a2, a3, b2, b3); \n"
+																  " } \n"
+																  " // Returns the inverse of a matrix, by using the algorithm of calculating the classical \n"
+																  " // adjoint and dividing by the determinant. The contents of the matrix are changed. \n"
+																  " static inline __attribute__((always_inline)) \n"
+																  " float4x4 spvInverse4x4(float4x4 m) \n"
+																  " { \n"
+																  "     float4x4 adj;	// The adjoint matrix (inverse after dividing by determinant) \n"
+																  "     // Create the transpose of the cofactors, as the classical adjoint of the matrix. \n"
+																  "     adj[0][0] =  spvDet3x3(m[1][1], m[1][2], m[1][3], m[2][1], m[2][2], m[2][3], m[3][1], m[3][2], m[3][3]); \n"
+																  "     adj[0][1] = -spvDet3x3(m[0][1], m[0][2], m[0][3], m[2][1], m[2][2], m[2][3], m[3][1], m[3][2], m[3][3]); \n"
+																  "     adj[0][2] =  spvDet3x3(m[0][1], m[0][2], m[0][3], m[1][1], m[1][2], m[1][3], m[3][1], m[3][2], m[3][3]); \n"
+																  "     adj[0][3] = -spvDet3x3(m[0][1], m[0][2], m[0][3], m[1][1], m[1][2], m[1][3], m[2][1], m[2][2], m[2][3]); \n"
+																  "     adj[1][0] = -spvDet3x3(m[1][0], m[1][2], m[1][3], m[2][0], m[2][2], m[2][3], m[3][0], m[3][2], m[3][3]); \n"
+																  "     adj[1][1] =  spvDet3x3(m[0][0], m[0][2], m[0][3], m[2][0], m[2][2], m[2][3], m[3][0], m[3][2], m[3][3]); \n"
+																  "     adj[1][2] = -spvDet3x3(m[0][0], m[0][2], m[0][3], m[1][0], m[1][2], m[1][3], m[3][0], m[3][2], m[3][3]); \n"
+																  "     adj[1][3] =  spvDet3x3(m[0][0], m[0][2], m[0][3], m[1][0], m[1][2], m[1][3], m[2][0], m[2][2], m[2][3]); \n"
+																  "     adj[2][0] =  spvDet3x3(m[1][0], m[1][1], m[1][3], m[2][0], m[2][1], m[2][3], m[3][0], m[3][1], m[3][3]); \n"
+																  "     adj[2][1] = -spvDet3x3(m[0][0], m[0][1], m[0][3], m[2][0], m[2][1], m[2][3], m[3][0], m[3][1], m[3][3]); \n"
+																  "     adj[2][2] =  spvDet3x3(m[0][0], m[0][1], m[0][3], m[1][0], m[1][1], m[1][3], m[3][0], m[3][1], m[3][3]); \n"
+																  "     adj[2][3] = -spvDet3x3(m[0][0], m[0][1], m[0][3], m[1][0], m[1][1], m[1][3], m[2][0], m[2][1], m[2][3]); \n"
+																  "     adj[3][0] = -spvDet3x3(m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2], m[3][0], m[3][1], m[3][2]); \n"
+																  "     adj[3][1] =  spvDet3x3(m[0][0], m[0][1], m[0][2], m[2][0], m[2][1], m[2][2], m[3][0], m[3][1], m[3][2]); \n"
+																  "     adj[3][2] = -spvDet3x3(m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[3][0], m[3][1], m[3][2]); \n"
+																  "     adj[3][3] =  spvDet3x3(m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]); \n"
+																  "     // Calculate the determinant as a combination of the cofactors of the first row. \n"
+																  "     float det = (adj[0][0] * m[0][0]) + (adj[0][1] * m[1][0]) + (adj[0][2] * m[2][0]) + (adj[0][3] * m[3][0]); \n"
+																  "     // Divide the classical adjoint matrix by the determinant. \n"
+																  "     // If determinant is zero, matrix is not invertable, so leave it unchanged. \n"
+																  "     return (det != 0.0f) ? (adj * (1.0f / det)) : m; \n"
+																  " } \n"
+																  " vertex ColoredVertex vertex_main(Vertex vertin [[stage_in]],	 \n"
+																  "                                  constant  Uniforms &uniforms[[buffer(5)]]) \n"
+																  " { \n"
+																  "     ColoredVertex vert; \n"
+																  "     float4x4 mvp = uniforms.view_projection * uniforms.model; \n"
+																  "     float4x4 keyframe_transform = \n"
+																  "     uniforms.joints_matrices[vertin.joint_id.x] * vertin.weight.x + \n"
+																  "     uniforms.joints_matrices[vertin.joint_id.y] * vertin.weight.y + \n"
+																  "     uniforms.joints_matrices[vertin.joint_id.z] * vertin.weight.z; \n"
+																  "     float4x4 model_animated = uniforms.model * keyframe_transform; \n"
+																  "     vert.world_position = float4(model_animated * float4(vertin.position, 1.0f)).xyz; \n"
+																  "     vert.position = uniforms.view_projection * float4(vert.world_position, 1.0f); \n"
+																  "     float4x4 model_inverse = transpose(spvInverse4x4(uniforms.model)); \n"
+																  "     vert.normal = float3x3(model_inverse[0].xyz, model_inverse[1].xyz, model_inverse[2].xyz) * vertin.normal; \n"
+																  "     vert.texture_coord = vertin.texture_coord; \n"
+																  "     return vert; \n"
+																  " } \n"
+																  " fragment float4 fragment_main(ColoredVertex vert [[stage_in]], \n"
+																  "                               texture2d<float> color_texture [[texture(0)]]) \n"
+																  " { \n"
+																  "     float3 light_position = float3(50.0f, 20.0f, 10.0f); \n"
 																  "	   float3 view_position = float3(1.0f, 1.0f, 1.0f); \n"
-																  "	   float3 light_color = float3(0.9f, 0.9f, 1.0f);\n"
-																  "	   float3 object_color = float3(1.0f, 1.0f, 1.0f);\n"
-																  "    // ambient\n"
-																  "    float ambient_strength = 0.1f;\n"
-																  "    float3 ambient = ambient_strength * light_color;\n"
-																  "    // diffuse \n"
-																  "    float3 norm = normalize(vert.normal);\n"
-																  "    float3 light_dir = normalize(light_position - vert.world_position);\n"
-																  "    float diff = max(dot(norm, light_dir), 0.0);\n"
-																  "    float3 diffuse = diff * light_color;\n"
-																  "    // specular\n"
-																  "    float specular_strength = 0.5;\n"
-																  "    float3 view_dir = normalize(view_position - vert.world_position);\n"
-																  "    float3 reflect_dir = reflect(-light_dir, norm);\n"
-																  "    float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32);\n"
-																  "    float3 specular = specular_strength * spec * light_color;  \n"
-																  "    float3 result = (ambient + diffuse + specular) * object_color;\n"
-																  "    constexpr sampler texture_sampler (mag_filter::linear, min_filter::linear);\n"
-																  "    return float4(result, 1.0f) * color_texture.sample(texture_sampler, vert.texture_coord.xy); \n"
-																  "}\n"
+																  "	   float3 light_color = float3(0.9f, 0.9f, 1.0f); \n"
+																  "	   float3 object_color = float3(1.0f, 1.0f, 1.0f); \n"
+																  "     // ambient \n"
+																  "     float ambient_strength = 0.1f; \n"
+																  "     float3 ambient = ambient_strength * light_color; \n"
+																  "     // diffuse \n"
+																  "     float3 norm = normalize(vert.normal); \n"
+																  "     float3 light_dir = normalize(light_position - vert.world_position); \n"
+																  "     float diff = max(dot(norm, light_dir), 0.0); \n"
+																  "     float3 diffuse = diff * light_color; \n"
+																  "     // specular \n"
+																  "     float specular_strength = 0.5; \n"
+																  "     float3 view_dir = normalize(view_position - vert.world_position); \n"
+																  "     float3 reflect_dir = reflect(-light_dir, norm); \n"
+																  "     float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32); \n"
+																  "     float3 specular = specular_strength * spec * light_color;  \n"
+																  "     float3 result = (ambient + diffuse + specular) * object_color; \n"
+																  "     constexpr sampler texture_sampler (mag_filter::linear, min_filter::linear); \n"
+																  "     return float4(result, 1.0f) * color_texture.sample(texture_sampler, vert.texture_coord); \n"
+																  " } \n"
 														 options:compileOptions
 														   error:&shader_error];
 		if (!shader_lib)
@@ -454,6 +423,7 @@ class MetalApplication
 		render_pipeline_descriptor.fragmentFunction                = frag_func;
 		render_pipeline_descriptor.colorAttachments[0].pixelFormat = pixel_format;
 		render_pipeline_descriptor.depthAttachmentPixelFormat      = MTLPixelFormatDepth32Float;
+		render_pipeline_descriptor.vertexDescriptor                = utl::get_astro_boy_vertex_descriptor();
 
 		render_pipeline_state = [device newRenderPipelineStateWithDescriptor:render_pipeline_descriptor error:NULL];
 

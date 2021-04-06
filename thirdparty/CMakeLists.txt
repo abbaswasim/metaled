@@ -29,9 +29,4 @@ add_subdirectory(roar)
 # Add glfw
 add_subdirectory(glfw)
 
-add_library(cimage INTERFACE)
-set(CIMG_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/CImg)
-target_sources(cimage INTERFACE ${CIMG_INCLUDE_DIR}/CImg.h)
-target_include_directories(cimage SYSTEM INTERFACE ${CIMG_INCLUDE_DIR})
-
 # target_compile_definitions(vulkan_headers INTERFACE VK_NO_PROTOTYPES) // TODO: Make this work later
