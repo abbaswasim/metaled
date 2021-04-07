@@ -47,6 +47,7 @@
 #include "camera.hpp"
 
 #include <cstdio>
+#include <fstream>
 #include <iostream>
 
 static bool         update_animation = true;
@@ -143,6 +144,44 @@ void read_texture_from_file(const char *a_file_name, unsigned char **a_data, uns
 	a_bpp = 4;
 
 	*a_data = mixed;
+}
+
+// Loads data at sizeof(uint32_t) aligned address
+bool align_load_file(const std::string &a_file_path, char **a_buffer, size_t &a_bytes_read)
+{
+	std::ifstream file(a_file_path, std::ios::in | std::ios::ate | std::ios::binary);
+
+	if (!file.is_open())
+	{
+		std::cout << "Error! opening file " << a_file_path.c_str() << std::endl;
+		return false;
+	}
+
+	auto file_size = file.tellg();
+	file.seekg(0, std::ios_base::beg);
+
+	if (file_size <= 0)
+	{
+		std::cout << "Error! reading file size " << a_file_path.c_str() << std::endl;
+		return false;
+	}
+
+	uint32_t *aligned_pointer = new uint32_t[static_cast<size_t>(file_size) / sizeof(uint32_t)];
+
+	*a_buffer = reinterpret_cast<char *>(aligned_pointer);
+
+	if (*a_buffer == nullptr)
+	{
+		std::cout << "Error! Out of memory allocating *a_buffer" << std::endl;
+		return false;
+	}
+
+	file.read(*a_buffer, file_size);
+	file.close();
+
+	a_bytes_read = static_cast<size_t>(file_size);
+
+	return true;
 }
 
 static void error_callback(int error, const char *description)
@@ -294,117 +333,19 @@ class MetalApplication
 		mvp            = [device newBufferWithBytes:&uniforms length:sizeof(Uniforms) options:MTLCPUCacheModeDefaultCache];
 
 		// Shaders
+
+		char * shader_code;
+		size_t shader_size;
+
+		align_load_file("./assets/shaders/shaders.metal", &shader_code, shader_size);
+
+		NSString *         shader_data = @(shader_code);
+
 		NSError *          shader_error;
 		MTLCompileOptions *compileOptions = [MTLCompileOptions new];
 		compileOptions.languageVersion    = MTLLanguageVersion1_1;
-		id<MTLLibrary> shader_lib         = [device newLibraryWithSource:@ "using namespace metal; \n"
-																  " struct Vertex \n"
-																  " { \n"
-																  "     float3 position [[attribute(0)]]; \n"
-																  "     float3 normal [[attribute(1)]]; \n"
-																  "     float2 texture_coord [[attribute(2)]]; \n"
-																  "     float3 weight [[attribute(3)]]; \n"
-																  "     int3 joint_id [[attribute(4)]]; \n"
-																  " }; \n"
-																  "  \n"
-																  " struct ColoredVertex \n"
-																  " { \n"
-																  "     float4 position [[position]]; \n"
-																  "     float3 world_position; \n"
-																  "     float3 normal; \n"
-																  "     float2 texture_coord; \n"
-																  " }; \n"
-																  " struct Uniforms \n"
-																  " { \n"
-																  "     float4x4 model; \n"
-																  "     float4x4 view_projection; \n"
-																  "     float4x4 joints_matrices[44]; \n"
-																  " }; \n"
-																  " // Returns the determinant of a 2x2 matrix. \n"
-																  " static inline __attribute__((always_inline)) \n"
-																  " float spvDet2x2(float a1, float a2, float b1, float b2) \n"
-																  " { \n"
-																  "     return a1 * b2 - b1 * a2; \n"
-																  " } \n"
-																  " // Returns the determinant of a 3x3 matrix. \n"
-																  " static inline __attribute__((always_inline)) \n"
-																  " float spvDet3x3(float a1, float a2, float a3, float b1, float b2, float b3, float c1, float c2, float c3) \n"
-																  " { \n"
-																  "     return a1 * spvDet2x2(b2, b3, c2, c3) - b1 * spvDet2x2(a2, a3, c2, c3) + c1 * spvDet2x2(a2, a3, b2, b3); \n"
-																  " } \n"
-																  " // Returns the inverse of a matrix, by using the algorithm of calculating the classical \n"
-																  " // adjoint and dividing by the determinant. The contents of the matrix are changed. \n"
-																  " static inline __attribute__((always_inline)) \n"
-																  " float4x4 spvInverse4x4(float4x4 m) \n"
-																  " { \n"
-																  "     float4x4 adj;	// The adjoint matrix (inverse after dividing by determinant) \n"
-																  "     // Create the transpose of the cofactors, as the classical adjoint of the matrix. \n"
-																  "     adj[0][0] =  spvDet3x3(m[1][1], m[1][2], m[1][3], m[2][1], m[2][2], m[2][3], m[3][1], m[3][2], m[3][3]); \n"
-																  "     adj[0][1] = -spvDet3x3(m[0][1], m[0][2], m[0][3], m[2][1], m[2][2], m[2][3], m[3][1], m[3][2], m[3][3]); \n"
-																  "     adj[0][2] =  spvDet3x3(m[0][1], m[0][2], m[0][3], m[1][1], m[1][2], m[1][3], m[3][1], m[3][2], m[3][3]); \n"
-																  "     adj[0][3] = -spvDet3x3(m[0][1], m[0][2], m[0][3], m[1][1], m[1][2], m[1][3], m[2][1], m[2][2], m[2][3]); \n"
-																  "     adj[1][0] = -spvDet3x3(m[1][0], m[1][2], m[1][3], m[2][0], m[2][2], m[2][3], m[3][0], m[3][2], m[3][3]); \n"
-																  "     adj[1][1] =  spvDet3x3(m[0][0], m[0][2], m[0][3], m[2][0], m[2][2], m[2][3], m[3][0], m[3][2], m[3][3]); \n"
-																  "     adj[1][2] = -spvDet3x3(m[0][0], m[0][2], m[0][3], m[1][0], m[1][2], m[1][3], m[3][0], m[3][2], m[3][3]); \n"
-																  "     adj[1][3] =  spvDet3x3(m[0][0], m[0][2], m[0][3], m[1][0], m[1][2], m[1][3], m[2][0], m[2][2], m[2][3]); \n"
-																  "     adj[2][0] =  spvDet3x3(m[1][0], m[1][1], m[1][3], m[2][0], m[2][1], m[2][3], m[3][0], m[3][1], m[3][3]); \n"
-																  "     adj[2][1] = -spvDet3x3(m[0][0], m[0][1], m[0][3], m[2][0], m[2][1], m[2][3], m[3][0], m[3][1], m[3][3]); \n"
-																  "     adj[2][2] =  spvDet3x3(m[0][0], m[0][1], m[0][3], m[1][0], m[1][1], m[1][3], m[3][0], m[3][1], m[3][3]); \n"
-																  "     adj[2][3] = -spvDet3x3(m[0][0], m[0][1], m[0][3], m[1][0], m[1][1], m[1][3], m[2][0], m[2][1], m[2][3]); \n"
-																  "     adj[3][0] = -spvDet3x3(m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2], m[3][0], m[3][1], m[3][2]); \n"
-																  "     adj[3][1] =  spvDet3x3(m[0][0], m[0][1], m[0][2], m[2][0], m[2][1], m[2][2], m[3][0], m[3][1], m[3][2]); \n"
-																  "     adj[3][2] = -spvDet3x3(m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[3][0], m[3][1], m[3][2]); \n"
-																  "     adj[3][3] =  spvDet3x3(m[0][0], m[0][1], m[0][2], m[1][0], m[1][1], m[1][2], m[2][0], m[2][1], m[2][2]); \n"
-																  "     // Calculate the determinant as a combination of the cofactors of the first row. \n"
-																  "     float det = (adj[0][0] * m[0][0]) + (adj[0][1] * m[1][0]) + (adj[0][2] * m[2][0]) + (adj[0][3] * m[3][0]); \n"
-																  "     // Divide the classical adjoint matrix by the determinant. \n"
-																  "     // If determinant is zero, matrix is not invertable, so leave it unchanged. \n"
-																  "     return (det != 0.0f) ? (adj * (1.0f / det)) : m; \n"
-																  " } \n"
-																  " vertex ColoredVertex vertex_main(Vertex vertin [[stage_in]],	 \n"
-																  "                                  constant  Uniforms &uniforms[[buffer(5)]]) \n"
-																  " { \n"
-																  "     ColoredVertex vert; \n"
-																  "     float4x4 mvp = uniforms.view_projection * uniforms.model; \n"
-																  "     float4x4 keyframe_transform = \n"
-																  "     uniforms.joints_matrices[vertin.joint_id.x] * vertin.weight.x + \n"
-																  "     uniforms.joints_matrices[vertin.joint_id.y] * vertin.weight.y + \n"
-																  "     uniforms.joints_matrices[vertin.joint_id.z] * vertin.weight.z; \n"
-																  "     float4x4 model_animated = uniforms.model * keyframe_transform; \n"
-																  "     vert.world_position = float4(model_animated * float4(vertin.position, 1.0f)).xyz; \n"
-																  "     vert.position = uniforms.view_projection * float4(vert.world_position, 1.0f); \n"
-																  "     float4x4 model_inverse = transpose(spvInverse4x4(uniforms.model)); \n"
-																  "     vert.normal = float3x3(model_inverse[0].xyz, model_inverse[1].xyz, model_inverse[2].xyz) * vertin.normal; \n"
-																  "     vert.texture_coord = vertin.texture_coord; \n"
-																  "     return vert; \n"
-																  " } \n"
-																  " fragment float4 fragment_main(ColoredVertex vert [[stage_in]], \n"
-																  "                               texture2d<float> color_texture [[texture(0)]]) \n"
-																  " { \n"
-																  "     float3 light_position = float3(50.0f, 20.0f, 10.0f); \n"
-																  "	   float3 view_position = float3(1.0f, 1.0f, 1.0f); \n"
-																  "	   float3 light_color = float3(0.9f, 0.9f, 1.0f); \n"
-																  "	   float3 object_color = float3(1.0f, 1.0f, 1.0f); \n"
-																  "     // ambient \n"
-																  "     float ambient_strength = 0.1f; \n"
-																  "     float3 ambient = ambient_strength * light_color; \n"
-																  "     // diffuse \n"
-																  "     float3 norm = normalize(vert.normal); \n"
-																  "     float3 light_dir = normalize(light_position - vert.world_position); \n"
-																  "     float diff = max(dot(norm, light_dir), 0.0); \n"
-																  "     float3 diffuse = diff * light_color; \n"
-																  "     // specular \n"
-																  "     float specular_strength = 0.5; \n"
-																  "     float3 view_dir = normalize(view_position - vert.world_position); \n"
-																  "     float3 reflect_dir = reflect(-light_dir, norm); \n"
-																  "     float spec = pow(max(dot(view_dir, reflect_dir), 0.0), 32); \n"
-																  "     float3 specular = specular_strength * spec * light_color;  \n"
-																  "     float3 result = (ambient + diffuse + specular) * object_color; \n"
-																  "     constexpr sampler texture_sampler (mag_filter::linear, min_filter::linear); \n"
-																  "     return float4(result, 1.0f) * color_texture.sample(texture_sampler, vert.texture_coord); \n"
-																  " } \n"
-														 options:compileOptions
-														   error:&shader_error];
+		id<MTLLibrary> shader_lib         = [device newLibraryWithSource:shader_data options:compileOptions error:&shader_error];
+
 		if (!shader_lib)
 		{
 			NSLog(@"Couldn't create MTL Shader library: %@", shader_error);
@@ -414,6 +355,8 @@ class MetalApplication
 
 		vert_func = [shader_lib newFunctionWithName:@"vertex_main"];
 		frag_func = [shader_lib newFunctionWithName:@"fragment_main"];
+
+		delete [] shader_code;
 
 		render_pipeline_descriptor                                 = [MTLRenderPipelineDescriptor new];
 		render_pipeline_descriptor.vertexFunction                  = vert_func;
