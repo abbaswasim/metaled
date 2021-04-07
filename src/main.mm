@@ -404,6 +404,8 @@ class MetalApplication
 		// Create the texture from the device by using the descriptor
 		texture = [device newTextureWithDescriptor:texture_descriptor];
 
+		delete [] data;
+
 		// Copy data
 		MTLRegion region = {
 			{0, 0, 0},                        // MTLOrigin
