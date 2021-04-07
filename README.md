@@ -1,11 +1,11 @@
 # Metal Education
 
-Metal Education is my personal metal rendering learning tests.
+Metal Education is very simple metal learning excercise.
+The project loads an animated model and displays it using glfw. Everything can be built from command line using make without going into xcode or calling xcode from command line.
 
 ## Platforms
 
 * MacOS
-* iOS
 
 ## Build
 
