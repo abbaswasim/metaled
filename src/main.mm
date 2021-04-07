@@ -240,9 +240,6 @@ class MetalApplication
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-		uint32_t win_width  = 1024;
-		uint32_t win_height = 900;
-
 		this->m_window = glfwCreateWindow(win_width, win_height, "Metal Application", nullptr, nullptr);
 
 		if (!this->m_window)
@@ -524,6 +521,7 @@ class MetalApplication
 
 			cmd_encoder = [cmd_buffer renderCommandEncoderWithDescriptor:render_pass_descriptor];
 
+			[cmd_encoder setViewport:(MTLViewport){0.0, 0.0, static_cast<double>(win_width), static_cast<double>(win_height), 0.0, 1.0}];
 			[cmd_encoder setDepthStencilState:depth_state];
 			[cmd_encoder setFrontFacingWinding:MTLWindingCounterClockwise];
 			[cmd_encoder setCullMode:MTLCullModeBack];
@@ -595,6 +593,9 @@ class MetalApplication
 	id<MTLTexture> texture{};
 
 	ror::BoundingBoxf astroboy_bbox{};
+
+	uint32_t win_width{1024};
+	uint32_t win_height{900};
 };
 
 int main(int argc, char *argv[])
